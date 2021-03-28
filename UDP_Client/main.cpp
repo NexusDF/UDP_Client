@@ -6,33 +6,49 @@
 
 using namespace std;
 
-int sentResult;
+int result;
 
 SOCKET in;
 string message;
 sockaddr_in receiver, sender;
 vector<sockaddr_in> addreses;
 
-void setcur(int x, int y)
-{
-	COORD coord;
-	coord.X = x;
-	coord.Y = y;
-	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
-};
 
-void RefreshServers() {
-	sentResult = sendto(in, message.c_str(), message.size(), 0, (sockaddr*)&receiver, sizeof(receiver));
+void DrawList() {
 	cout << "Servers:\n";
 	for (auto const& addr : addreses) {
 		char ip[256];
 		inet_ntop(AF_INET, &addr.sin_addr, ip, 256);
 		cout << ip << endl;
 	}
-	Sleep(1000);
-	system("cls");
 }
 
+void ClientHandler() {
+	char buf[1024];
+	message = "Broadcast work!";
+	int senderLength = sizeof(sender);
+
+	while (true) {
+		ZeroMemory(buf, 1024);
+		ZeroMemory(&sender, senderLength);
+		int recvRes = recvfrom(in, buf, 1024, 0, (sockaddr*)&sender, &senderLength);
+		if (recvRes != SOCKET_ERROR) {
+			char ip[256];
+			system("cls");
+			inet_ntop(AF_INET, &sender.sin_addr, ip, 256);
+			addreses.push_back(sender);
+		}
+	}
+}
+
+
+
+void RefreshServers() {
+	sendto(in, message.c_str(), message.size(), 0, (sockaddr*)&receiver, sizeof(receiver));
+	addreses.clear();
+	system("cls");
+	DrawList();
+}
 
 void main()
 {
@@ -59,47 +75,32 @@ void main()
 		return;
 	}
 
-
-	int senderLength = sizeof(sender);
-
 	receiver.sin_addr.S_un.S_addr = INADDR_BROADCAST;
 	receiver.sin_family = AF_INET;
 	receiver.sin_port = htons(54000);
 
-	char buf[1024];
-	message = "Broadcast work!";
-	
 	system("cls");
 	char choice;
 
-	//HANDLE sendIp = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, NULL, NULL, NULL);
+	HANDLE sendIp = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)ClientHandler, NULL, NULL, NULL);
 	//HANDLE input = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)InputHandler, NULL, NULL, NULL);
 
-	RefreshServers();
+	//RefreshServers();
+	cout << "Для обновления введите (r)\n";
+
 	while (true)
 	{
-		ZeroMemory(buf, 1024);
-		ZeroMemory(&sender, senderLength);
 		char choice;
 		cin >> choice;
 		if (choice == 'r') {
 			RefreshServers();
 		}
-
-		if (sentResult != 0) {
-			recvfrom(in, buf, 1024, 0, (sockaddr*)&sender, &senderLength);
-		}
-		
-		system("cls");
-		char ip[256];
-		inet_ntop(AF_INET, &sender.sin_addr, ip, 256);
-		addreses.push_back(sender);
 	}
 
 	// Close socket
 	closesocket(in);
 
 	// Shutdown winsock
-	// CloseHandle(sendIp);
+	CloseHandle(sendIp);
 	WSACleanup();
 }
